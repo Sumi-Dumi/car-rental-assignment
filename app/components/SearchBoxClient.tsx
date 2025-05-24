@@ -48,7 +48,7 @@ export default function SearchBoxClient() {
   };
 
   return (
-    <div className="relative w-64" ref={dropdownRef}>
+    <div className="relative w-full" ref={dropdownRef}>
       <input
         type="text"
         value={query}

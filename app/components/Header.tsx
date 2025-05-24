@@ -7,7 +7,7 @@ export default async function Header() {
 
   return (
     <>
-      <div className="flex items-center gap-4 px-6 py-4 border-b">
+      <div className="flex w-full items-center gap-4 px-6 py-4 border-b">
         <a href="/">
           <img src="/logo.png" alt="Logo" width={80} height={40} />
         </a>
