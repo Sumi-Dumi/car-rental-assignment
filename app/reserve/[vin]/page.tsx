@@ -1,4 +1,3 @@
-// app/reserve/[vin]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -14,6 +13,10 @@ type Car = {
   imageUrl: string;
   pricePerDay: number;
   available: boolean;
+  year: number;
+  mileage: number;
+  fuelType: string;
+  description?: string;
 };
 
 type FormState = {
@@ -81,7 +84,6 @@ export default function ReservePage() {
     if (!/^[\w.-]+@\w+\.\w{2,}$/.test(values.email)) {
       newErrors.email = 'Please enter a valid email';
     }
-    
     if (!/^[A-Z0-9]{8,10}$/.test(values.licenseNumber)) newErrors.licenseNumber = 'License must be 8–10 uppercase alphanumerics';
     if (!values.startDate) newErrors.startDate = 'Start date is required';
     if (!(values.rentalDays >= 1 && values.rentalDays <= 30)) newErrors.rentalDays = 'Rental days must be between 1 and 30';
@@ -145,10 +147,19 @@ export default function ReservePage() {
       </header>
 
       <div className="mb-6">
-        <img src={car.imageUrl} alt={car.model} className="w-full h-40 object-cover mb-2" />
+      <img
+  src={car.imageUrl.startsWith('/') ? car.imageUrl : `/${car.imageUrl}`}
+  alt={car.model}
+  className="w-full h-60 object-cover mb-5"
+/>
+
         <h2 className="text-xl font-semibold">{car.brand} {car.model}</h2>
         <p className="text-gray-600">{car.type}</p>
-        <p className="text-gray-600">${car.pricePerDay.toFixed(2)} per day</p>
+        <p className="text-gray-600">Year: {car.year}</p>
+        <p className="text-gray-600">Mileage: {car.mileage.toLocaleString()} km</p>
+        <p className="text-gray-600">Fuel Type: {car.fuelType}</p>
+        {car.description && <p className="text-gray-600 italic mt-2">{car.description}</p>}
+        <p className="text-gray-600 mt-2">${car.pricePerDay.toFixed(2)} per day</p>
         {!car.available && (
           <p className="text-red-500 font-semibold mt-2">This car is currently unavailable. Please rent another car.</p>
         )}
@@ -156,7 +167,7 @@ export default function ReservePage() {
 
       {car.available && (
         <form onSubmit={handleSubmit} className="space-y-4">
-          {['customerName', 'phoneNumber', 'email', 'licenseNumber', 'startDate', 'rentalDays'].map((field) => (
+          {(['customerName', 'phoneNumber', 'email', 'licenseNumber', 'startDate', 'rentalDays'] as const).map((field) => (
             <div key={field}>
               <input
                 type={
@@ -165,16 +176,20 @@ export default function ReservePage() {
                   field === 'rentalDays' ? 'number' : 'text'
                 }
                 name={field}
-                placeholder={field === 'customerName' ? 'Name' : field === 'licenseNumber' ? "Driver's License Number" : field}
-                value={(form as any)[field]}
+                placeholder={
+                  field === 'customerName' ? 'Name' :
+                  field === 'licenseNumber' ? "Driver's License Number" :
+                  field
+                }
+                value={form[field]}
                 onChange={handleChange}
                 required
                 min={field === 'rentalDays' ? 1 : undefined}
                 max={field === 'rentalDays' ? 30 : undefined}
                 className="w-full border px-3 py-2 rounded"
               />
-              {errors[field as keyof FormState] && (
-                <p className="text-red-500 text-sm mt-1">{errors[field as keyof FormState]}</p>
+              {errors[field] && (
+                <p className="text-red-500 text-sm mt-1">{errors[field]}</p>
               )}
             </div>
           ))}

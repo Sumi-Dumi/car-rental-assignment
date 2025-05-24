@@ -41,8 +41,10 @@ export default function SearchBoxClient() {
 
   const handleSearch = (text: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (text) params.set('q', text);
-    else params.delete('q');
+    const words = text.split(' ');
+
+    words.forEach(word => params.set('q', word));
+
     router.push('/?' + params.toString());
     setShowDropdown(false);
   };
