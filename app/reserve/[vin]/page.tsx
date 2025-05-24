@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ReservationPopup from '../../components/ReservationPopup';
 import { useReservationPopup } from '../../hooks/useReservationPopup';
 
@@ -25,66 +25,79 @@ type FormState = {
 };
 
 export default function ReservePage() {
-  const { vin } = useParams<{ vin: string }>();
   const router = useRouter();
-
+  const searchParams = useSearchParams();
+  const vinFromURL = searchParams.get('vin') ?? null;
+  const [vin, setVin] = useState<string | null>(vinFromURL);
   const [car, setCar] = useState<Car | null>(null);
-  const [form, setForm] = useState<FormState>(() => {
-    if (typeof window !== 'undefined' && vin) {
-      const saved = localStorage.getItem(`reservationForm-${vin}`);
-      return saved ? JSON.parse(saved) : {
-        customerName: '',
-        phoneNumber: '',
-        email: '',
-        licenseNumber: '',
-        startDate: '',
-        rentalDays: 1,
-      };
-    }
-    return {
-      customerName: '',
-      phoneNumber: '',
-      email: '',
-      licenseNumber: '',
-      startDate: '',
-      rentalDays: 1,
-    };
-  });
-
+  const [form, setForm] = useState<FormState | null>(null);
   const [totalPrice, setTotalPrice] = useState(0);
   const { visible, message, showPopup, hidePopup } = useReservationPopup();
 
+  // 초기화: vin이 없으면 localStorage에서 가져옴
   useEffect(() => {
-    if (typeof window !== 'undefined' && vin) {
+    if (!vin) {
+      const lastVin = localStorage.getItem('lastViewedVin');
+      if (lastVin) {
+        setVin(lastVin);
+      } else {
+        showPopup('No vehicle selected. Please go back and choose a car.');
+      }
+    }
+  }, [vin]);
+
+  // 차량 정보 fetch
+  useEffect(() => {
+    if (!vin) return;
+    fetch(`/api/cars/${vin}`)
+      .then((res) => res.json())
+      .then((data) => setCar(data))
+      .catch(() => showPopup('Failed to fetch vehicle data.'));
+  }, [vin]);
+
+  // 폼 초기화
+  useEffect(() => {
+    if (!vin) return;
+    const saved = localStorage.getItem(`reservationForm-${vin}`);
+    const parsed: FormState = saved
+      ? JSON.parse(saved)
+      : {
+          customerName: '',
+          phoneNumber: '',
+          email: '',
+          licenseNumber: '',
+          startDate: '',
+          rentalDays: 1,
+        };
+    setForm(parsed);
+  }, [vin]);
+
+  // 폼 저장
+  useEffect(() => {
+    if (form && vin) {
       localStorage.setItem(`reservationForm-${vin}`, JSON.stringify(form));
     }
   }, [form, vin]);
 
+  // 총 가격 계산
   useEffect(() => {
-    const fetchCar = async () => {
-      const res = await fetch(`/api/cars/${vin}`);
-      const data = await res.json();
-      setCar(data);
-    };
-    fetchCar();
-  }, [vin]);
-
-  useEffect(() => {
-    if (car) {
+    if (car && form) {
       setTotalPrice(car.pricePerDay * form.rentalDays);
     }
-  }, [car, form.rentalDays]);
+  }, [car, form]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    if (!form) return;
     setForm((prev) => ({
-      ...prev,
+      ...prev!,
       [name]: name === 'rentalDays' ? parseInt(value) : value,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!vin || !form) return;
 
     const order = {
       carVin: vin,
@@ -107,7 +120,7 @@ export default function ReservePage() {
   };
 
   const handleCancel = () => {
-    localStorage.removeItem(`reservationForm-${vin}`);
+    if (vin) localStorage.removeItem(`reservationForm-${vin}`);
     router.push('/');
   };
 
@@ -116,7 +129,7 @@ export default function ReservePage() {
     router.push('/');
   };
 
-  if (!car) return <p>Loading...</p>;
+  if (!vin || !car || !form) return <p>Loading...</p>;
 
   return (
     <main className="p-6 max-w-xl mx-auto">
@@ -147,12 +160,11 @@ export default function ReservePage() {
       </form>
 
       <ReservationPopup
-  message={message}
-  visible={visible}
-  onClose={handlePopupClose}
-  onConfirm={handlePopupClose} 
-/>
-
+        message={message}
+        visible={visible}
+        onClose={handlePopupClose}
+        onConfirm={handlePopupClose}
+      />
     </main>
   );
 }

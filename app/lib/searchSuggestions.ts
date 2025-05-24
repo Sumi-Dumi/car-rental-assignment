@@ -1,11 +1,11 @@
 import db from './db';
 
-export async function searchSuggestions(query: string): Promise<string[]> {
+export async function getLiveSuggestions(query: string): Promise<string[]> {
   if (!query.trim()) return [];
 
-  const queryLower = query.toLowerCase();
+  const lowered = query.toLowerCase();
 
-  const results = await db.car.findMany({
+  const cars = await db.car.findMany({
     where: {
       OR: [
         { brand: { contains: query } },
@@ -14,25 +14,15 @@ export async function searchSuggestions(query: string): Promise<string[]> {
       ],
     },
     take: 10,
-    select: {
-      brand: true,
-      model: true,
-      type: true,
-    },
+    select: { brand: true, model: true, type: true },
   });
 
   const suggestions = new Set<string>();
 
-  results.forEach((car) => {
-    if (car.brand?.toLowerCase().includes(queryLower)) {
-      suggestions.add(car.brand);
-    }
-    if (car.model?.toLowerCase().includes(queryLower)) {
-      suggestions.add(`${car.brand} ${car.model}`);
-    }
-    if (car.type?.toLowerCase().includes(queryLower)) {
-      suggestions.add(car.type);
-    }
+  cars.forEach(car => {
+    if (car.brand?.toLowerCase().includes(lowered)) suggestions.add(car.brand);
+    if (car.model?.toLowerCase().includes(lowered)) suggestions.add(`${car.brand} ${car.model}`);
+    if (car.type?.toLowerCase().includes(lowered)) suggestions.add(car.type);
   });
 
   return Array.from(suggestions);
