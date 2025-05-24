@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+model Car {
+  vin           String   @id
+  type          String
+  brand         String
+  model         String
+  year          Int
+  mileage       Int
+  fuelType      String
+  pricePerDay   Float
+  description   String?
+  imageUrl      String
+  available     Boolean  @default(true)
+  orders        Order[]
+}
+
+model Order {
+  id              Int      @id @default(autoincrement())
+  carVin          String
+  car             Car      @relation(fields: [carVin], references: [vin])
+  customerName    String
+  phoneNumber     String
+  email           String
+  licenseNumber   String       
+  startDate       DateTime
+  rentalDays      Int
+  totalPrice      Float
+  status          OrderStatus @default(PENDING)
+  createdAt       DateTime     @default(now())
+}
+
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+}

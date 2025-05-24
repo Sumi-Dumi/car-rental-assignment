@@ -1,29 +1,9 @@
-// app/page.tsx
-import Header from './components/Header';
-import { searchCars } from './lib/searchCars';
-import RentButton from './components/RentButton';
+'use client';
 
-type SearchParams = {
-  q?: string;
-  brand?: string | string[];
-  type?: string | string[];
-  fuelType?: string | string[];
-};
+import Header from './Header';
+import RentButton from './RentButton';
 
-export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const params = await searchParams; // Await searchParams before using its properties
-  const query = params.q ?? null;
-
-  const toArray = (param?: string | string[]): string[] =>
-    typeof param === 'string' ? [param] : param ?? [];
-
-  const cars = await searchCars({
-    query,
-    brand: toArray(params.brand),
-    type: toArray(params.type),
-    fuelType: toArray(params.fuelType),
-  });
-
+export default function CarList({ cars, query }: { cars: any[]; query: string | null }) {
   return (
     <main>
       <Header />
