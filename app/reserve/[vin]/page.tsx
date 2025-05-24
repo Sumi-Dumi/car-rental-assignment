@@ -1,7 +1,8 @@
+// app/reserve/[vin]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import ReservationPopup from '../../components/ReservationPopup';
 import { useReservationPopup } from '../../hooks/useReservationPopup';
 
@@ -24,29 +25,18 @@ type FormState = {
   rentalDays: number;
 };
 
+type FormErrors = Partial<Record<keyof FormState, string>>;
+
 export default function ReservePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const vinFromURL = searchParams.get('vin') ?? null;
-  const [vin, setVin] = useState<string | null>(vinFromURL);
+  const { vin } = useParams<{ vin: string }>();
   const [car, setCar] = useState<Car | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [totalPrice, setTotalPrice] = useState(0);
   const { visible, message, showPopup, hidePopup } = useReservationPopup();
+  const [isFormValid, setIsFormValid] = useState(false);
 
-  // 초기화: vin이 없으면 localStorage에서 가져옴
-  useEffect(() => {
-    if (!vin) {
-      const lastVin = localStorage.getItem('lastViewedVin');
-      if (lastVin) {
-        setVin(lastVin);
-      } else {
-        showPopup('No vehicle selected. Please go back and choose a car.');
-      }
-    }
-  }, [vin]);
-
-  // 차량 정보 fetch
   useEffect(() => {
     if (!vin) return;
     fetch(`/api/cars/${vin}`)
@@ -55,7 +45,6 @@ export default function ReservePage() {
       .catch(() => showPopup('Failed to fetch vehicle data.'));
   }, [vin]);
 
-  // 폼 초기화
   useEffect(() => {
     if (!vin) return;
     const saved = localStorage.getItem(`reservationForm-${vin}`);
@@ -72,32 +61,49 @@ export default function ReservePage() {
     setForm(parsed);
   }, [vin]);
 
-  // 폼 저장
   useEffect(() => {
     if (form && vin) {
       localStorage.setItem(`reservationForm-${vin}`, JSON.stringify(form));
+      validateForm(form);
     }
   }, [form, vin]);
 
-  // 총 가격 계산
   useEffect(() => {
     if (car && form) {
       setTotalPrice(car.pricePerDay * form.rentalDays);
     }
   }, [car, form]);
 
+  const validateForm = (values: FormState) => {
+    const newErrors: FormErrors = {};
+    if (!values.customerName.trim()) newErrors.customerName = 'Name is required';
+    if (!/^[0-9]{8,12}$/.test(values.phoneNumber)) newErrors.phoneNumber = 'Phone number must be 8–12 digits';
+    if (!/^[\w.-]+@\w+\.\w{2,}$/.test(values.email)) {
+      newErrors.email = 'Please enter a valid email';
+    }
+    
+    if (!/^[A-Z0-9]{8,10}$/.test(values.licenseNumber)) newErrors.licenseNumber = 'License must be 8–10 uppercase alphanumerics';
+    if (!values.startDate) newErrors.startDate = 'Start date is required';
+    if (!(values.rentalDays >= 1 && values.rentalDays <= 30)) newErrors.rentalDays = 'Rental days must be between 1 and 30';
+
+    setErrors(newErrors);
+    setIsFormValid(Object.keys(newErrors).length === 0);
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (!form) return;
-    setForm((prev) => ({
-      ...prev!,
+    const updated = {
+      ...form,
       [name]: name === 'rentalDays' ? parseInt(value) : value,
-    }));
+    };
+    setForm(updated);
+    validateForm(updated);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vin || !form) return;
+    if (!vin || !form || !isFormValid) return;
 
     const order = {
       carVin: vin,
@@ -143,21 +149,50 @@ export default function ReservePage() {
         <h2 className="text-xl font-semibold">{car.brand} {car.model}</h2>
         <p className="text-gray-600">{car.type}</p>
         <p className="text-gray-600">${car.pricePerDay.toFixed(2)} per day</p>
+        {!car.available && (
+          <p className="text-red-500 font-semibold mt-2">This car is currently unavailable. Please rent another car.</p>
+        )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input type="text" name="customerName" placeholder="Name" value={form.customerName} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
-        <input type="tel" name="phoneNumber" pattern="^[0-9]{8,12}$" title="Enter a valid phone number" placeholder="Phone Number" value={form.phoneNumber} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
-        <input type="email" name="email" placeholder="Email" value={form.email} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
-        <input type="text" name="licenseNumber" pattern="^[A-Z0-9]{8,10}$" title="Enter a valid Australian license number" placeholder="Driver's License Number" value={form.licenseNumber} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
-        <input type="date" name="startDate" value={form.startDate} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
-        <input type="number" name="rentalDays" min={1} max={30} value={form.rentalDays} onChange={handleChange} required className="w-full border px-3 py-2 rounded" />
-        <p className="text-lg font-semibold">Total: ${totalPrice.toFixed(2)}</p>
-        <div className="flex gap-4">
-          <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded">Reserve</button>
-          <button type="button" onClick={handleCancel} className="flex-1 bg-gray-300 text-black py-2 rounded">Cancel</button>
-        </div>
-      </form>
+      {car.available && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {['customerName', 'phoneNumber', 'email', 'licenseNumber', 'startDate', 'rentalDays'].map((field) => (
+            <div key={field}>
+              <input
+                type={
+                  field === 'email' ? 'email' :
+                  field === 'startDate' ? 'date' :
+                  field === 'rentalDays' ? 'number' : 'text'
+                }
+                name={field}
+                placeholder={field === 'customerName' ? 'Name' : field === 'licenseNumber' ? "Driver's License Number" : field}
+                value={(form as any)[field]}
+                onChange={handleChange}
+                required
+                min={field === 'rentalDays' ? 1 : undefined}
+                max={field === 'rentalDays' ? 30 : undefined}
+                className="w-full border px-3 py-2 rounded"
+              />
+              {errors[field as keyof FormState] && (
+                <p className="text-red-500 text-sm mt-1">{errors[field as keyof FormState]}</p>
+              )}
+            </div>
+          ))}
+          <p className="text-lg font-semibold">Total: ${totalPrice.toFixed(2)}</p>
+          <div className="flex gap-4">
+            <button
+              type="submit"
+              disabled={!isFormValid}
+              className={`flex-1 py-2 rounded text-white ${
+                isFormValid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'
+              }`}
+            >
+              Reserve
+            </button>
+            <button type="button" onClick={handleCancel} className="flex-1 bg-gray-300 text-black py-2 rounded">Cancel</button>
+          </div>
+        </form>
+      )}
 
       <ReservationPopup
         message={message}

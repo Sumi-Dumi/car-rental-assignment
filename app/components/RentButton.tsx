@@ -1,23 +1,15 @@
 'use client';
-
 import { useRouter } from 'next/navigation';
 
-type Props = {
-  vin: string;
-  available: boolean;
-};
+type Props = { vin: string; available: boolean };
 
 export default function RentButton({ vin, available }: Props) {
   const router = useRouter();
 
   const handleClick = () => {
-    if (!available) return;
-
-    // Save the last clicked VIN to localStorage
-    localStorage.setItem('lastViewedVin', vin);
-
-    // Navigate to reservation page
-    router.push(`/reserve/${vin}`);
+    if (available) {
+      router.push(`/reserve/${vin}`);
+    }
   };
 
   return (

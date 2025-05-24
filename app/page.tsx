@@ -1,7 +1,7 @@
-// app/page.tsx
+
 import Header from './components/Header';
 import { searchCars } from './lib/searchCars';
-import RentButton from './components/RentButton';
+import CarCard from './components/CarCard';
 
 type SearchParams = {
   q?: string;
@@ -11,7 +11,7 @@ type SearchParams = {
 };
 
 export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const params = await searchParams; // Await searchParams before using its properties
+  const params = await searchParams;
   const query = params.q ?? null;
 
   const toArray = (param?: string | string[]): string[] =>
@@ -33,14 +33,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
         </h1>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {cars.map((car) => (
-            <div key={car.vin} className="border rounded p-4">
-              <img src={car.imageUrl} alt={car.model} className="w-full h-40 object-cover mb-2" />
-              <h2 className="font-semibold text-lg">{car.brand} {car.model}</h2>
-              <p className="text-sm text-gray-600">{car.type}</p>
-              <p>${car.pricePerDay.toFixed(2)} per day</p>
-              <p>{car.available ? '✅ Available' : '❌ Unavailable'}</p>
-              <RentButton vin={car.vin} available={car.available} />
-            </div>
+            <CarCard key={car.vin} car={car} />
           ))}
         </div>
       </div>
